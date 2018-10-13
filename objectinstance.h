@@ -27,6 +27,7 @@ class ObjectInstance : protected QOpenGLFunctions_4_1_Core
         Transform* getTransform() const {return mTransform;}
         QMatrix4x4* getModelMatrix();
         std::string getTag() const {return mTag;}
+        SceneObject* getModel() const {return mModel;}
 
     protected:
         SceneObject *mModel;

@@ -18,6 +18,8 @@ INPUT(
 ./debug\transform.o
 ./debug\vertex.o
 ./debug\byteconverter.o
+./debug\collision.o
 ./debug\moc_mainwindow.o
 ./debug\moc_renderwindow.o
+./debug\moc_collision.o
 );

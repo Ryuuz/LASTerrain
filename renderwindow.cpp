@@ -29,6 +29,7 @@
 
 #include "boundingvolume.h"
 #include "transform.h"
+#include "collision.h"
 
 
 
@@ -64,6 +65,8 @@ RenderWindow::~RenderWindow()
 
     delete mColorShader;
     delete mLightShader;
+
+    delete mCollision;
 }
 
 
@@ -104,6 +107,8 @@ void RenderWindow::init()
 
     Material::setCamera(mCurrentCamera);
 
+    mCollision = new Collision;
+
     //Load assets
     mAxis = new Axis;
     mAxis->setMaterial(mMaterial);
@@ -135,6 +140,7 @@ void RenderWindow::createObjects()
     obj = new ObjectInstance(mAxis);
     mStaticObjects.push_back(obj);
 
+    //Terrain
     obj = new ObjectInstance(mTerrain);
     obj->getTransform()->setPosition(-100.f, -90.f, -50.f);
     obj->getTransform()->setScale(0.5f, 0.5f, 0.5f);
@@ -143,11 +149,17 @@ void RenderWindow::createObjects()
 
     mWorldTerrain = mStaticObjects.back();
 
-    //Spheres
+    //Sphere
     physObj = new PhysicsObject(mSphere);
     physObj->setColor(QVector3D(1.f, 0.f, 0.f));
     physObj->setBoundingObject(BoundType::sphere);
-    physObj->getTransform()->setPosition(0.f, 0.5f, 0.f);
+    physObj->getTransform()->setPosition(0.f, 10.f, 0.f);
+    mDynamicObjects.push_back(physObj);
+
+    physObj = new PhysicsObject(mSphere);
+    physObj->setColor(QVector3D(0.f, 0.f, 1.f));
+    physObj->setBoundingObject(BoundType::sphere);
+    physObj->getTransform()->setPosition(12.f, 10.f, 4.f);
     mDynamicObjects.push_back(physObj);
 
     mPlayer = mDynamicObjects.at(0);
@@ -210,8 +222,30 @@ void RenderWindow::update()
     {
         //Move object
         object->physicsUpdate(mDeltaTime);
-        object->setYPos(mTerrain->findY(object->getTransform()->getTranslation(), mWorldTerrain->getModelMatrix()));
-        object->moveObject();
+        mCollision->groundCollision(object, mWorldTerrain);
+
+        /*for(auto item : mStaticObjects)
+        {
+            if(object->getBounds() && item->getBounds())
+            {
+                if(mCollision->collisionDetection(object->getBounds(), item->getBounds()))
+                {
+                    mCollision->collisionHandling(object, item);
+                }
+            }
+        }*/
+
+        //Check object against other physics objects for collision
+        for(auto item : mDynamicObjects)
+        {
+            if(item != object && item->getBounds() && object->getBounds())
+            {
+                if(mCollision->collisionDetection(object->getBounds(), item->getBounds()))
+                {
+                    mCollision->collisionHandling(object, item);
+                }
+            }
+        }
     }
 }
 

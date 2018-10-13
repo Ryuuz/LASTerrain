@@ -9,7 +9,6 @@ PointCloud::PointCloud(std::string path, float resX, float resZ) : mResolutionX(
     readLASHeader(path);
     assignIndices();
     averageNormals();
-    assignNeighbors();
     init();
 }
 
@@ -160,13 +159,13 @@ void PointCloud::readLASPoints(std::ifstream& file)
 
 void PointCloud::makeGrid(unsigned int minX, unsigned int minZ)
 {
-    std::vector<QVector3D> *grid = new std::vector<QVector3D>[stepX*stepZ];
+    std::vector<float> *grid = new std::vector<float>[stepX*stepZ];
     float offsetX = 0.f - mPoints.at(minX).x();
     float offsetZ = 0.f - mPoints.at(minZ).z();
 
     for(auto point : mPoints)
     {
-        grid[((static_cast<int>((point.z() + offsetZ)/mResolutionZ))*(stepX)) + (static_cast<int>((point.x() + offsetX)/mResolutionX))].push_back(point);
+        grid[((static_cast<int>((point.z() + offsetZ)/mResolutionZ))*(stepX)) + (static_cast<int>((point.x() + offsetX)/mResolutionX))].push_back(point.y());
     }
     mPoints.clear();
 
@@ -196,7 +195,7 @@ void PointCloud::makeGrid(unsigned int minX, unsigned int minZ)
                 {
                     if(grid[j].size() > 0)
                     {
-                        y += grid[j].at(0).y();
+                        y += grid[j].at(0);
                         found = true;
                     }
 
@@ -217,13 +216,13 @@ void PointCloud::makeGrid(unsigned int minX, unsigned int minZ)
         }
         else if(grid[i].size() == 1)
         {
-            y = grid[i].at(0).y();
+            y = grid[i].at(0);
         }
         else
         {
             for(auto point : grid[i])
             {
-                y += point.y();
+                y += point;
             }
             y /= static_cast<float>(grid[i].size());           
         }
@@ -243,40 +242,51 @@ void PointCloud::assignIndices()
     mNumberOfIndices = ((stepX-1)*(stepZ-1))*2*3;
     mIndices = new int[mNumberOfIndices];
 
+    mNumberOfTriangles = ((stepX-1)*(stepZ-1))*2;
+    mTriangles = new Triangle[mNumberOfTriangles];
+    int trianglesX = (stepX - 1) * 2;
+
     int index = 0;
+    int tri = 0;
 
     for(int i = 0; i < (stepZ-1); i++)
     {
         for(int j = 0; j < (stepX-1); j++)
         {
-            mIndices[index++] = j + (i*stepX);
-            mIndices[index++] = (j + (i*stepX)) + stepX;
-            mIndices[index++] = (j + (i*stepX)) + (stepX + 1);
+            mIndices[index] = j + (i*stepX);
+            mIndices[index+1] = (j + (i*stepX)) + stepX;
+            mIndices[index+2] = (j + (i*stepX)) + (stepX + 1);
 
-            mIndices[index++] = j + (i*stepX);
-            mIndices[index++] = (j + (i*stepX)) + (stepX + 1);
-            mIndices[index++] = (j + (i*stepX)) + 1;
+            mTriangles[tri].a = mVertices[mIndices[index]].getPosition();
+            mTriangles[tri].b = mVertices[mIndices[index+1]].getPosition();
+            mTriangles[tri].c = mVertices[mIndices[index+2]].getPosition();
+
+            mTriangles[tri].n1 = ((tri + trianglesX) < mNumberOfTriangles) ? (tri + trianglesX) : -1;
+            mTriangles[tri].n2 = tri + 1;
+            mTriangles[tri].n3 = ((tri % trianglesX) == 0) ? -1 : (tri - 1);
+
+            mTriangles[tri].norm = QVector3D::crossProduct(mTriangles[tri].b - mTriangles[tri].a, mTriangles[tri].c - mTriangles[tri].a).normalized();
+
+            index += 3;
+            tri++;
+
+            mIndices[index] = j + (i*stepX);
+            mIndices[index+1] = (j + (i*stepX)) + (stepX + 1);
+            mIndices[index+2] = (j + (i*stepX)) + 1;
+
+            mTriangles[tri].a = mVertices[mIndices[index]].getPosition();
+            mTriangles[tri].b = mVertices[mIndices[index+1]].getPosition();
+            mTriangles[tri].c = mVertices[mIndices[index+2]].getPosition();
+
+            mTriangles[tri].n1 = ((tri % (trianglesX-1)) == 0) ? -1 : (tri + 1);
+            mTriangles[tri].n2 = ((tri - trianglesX) >= 0) ? (tri - trianglesX) : -1;
+            mTriangles[tri].n3 = tri - 1;
+
+            mTriangles[tri].norm = QVector3D::crossProduct(mTriangles[tri].b - mTriangles[tri].a, mTriangles[tri].c - mTriangles[tri].a).normalized();
+
+            index += 3;
+            tri++;
         }
-    }
-}
-
-
-//Assigns the neighbours to each triangle based on whether they share an edge
-void PointCloud::assignNeighbors()
-{
-    int trianglesX = (stepX - 1) * 2;
-    mNeighbors = new int[mNumberOfIndices];
-
-    //Go through each square (every two triangles)
-    for(int i = 0; i < mNumberOfIndices; i += 6)
-    {
-        mNeighbors[i] = (((i/3) + trianglesX) < (trianglesX*(stepZ-1))) ? ((i/3) + trianglesX) : -1;
-        mNeighbors[i+1] = (i/3) + 1;
-        mNeighbors[i+2] = (((i/3) % trianglesX) == 0) ? -1 : (i/3)-1;
-
-        mNeighbors[i+3] = ((((i/3)+1) % (trianglesX-1)) == 0) ? -1 : ((i/3)+1)+1;
-        mNeighbors[i+4] = ((((i/3)+1) - trianglesX) >= 0) ? (((i/3)+1) - trianglesX) : -1;
-        mNeighbors[i+5] = ((i/3)+1) - 1;
     }
 }
 
@@ -289,11 +299,6 @@ void PointCloud::averageNormals()
     int *triangles = new int[6];
     int difference = 0;
     int trianglesX = (stepX-1)*2;
-
-    for(int i = 0; i < mNumberOfIndices; i += 3)
-    {
-        normals[i/3] = QVector3D::crossProduct((mVertices[mIndices[i+1]].getPosition() - mVertices[mIndices[i]].getPosition()), (mVertices[mIndices[i+2]].getPosition() - mVertices[mIndices[i]].getPosition()));
-    }
 
     for(int i = 0; i < (stepZ); i++)
     {
@@ -338,10 +343,10 @@ void PointCloud::averageNormals()
 
             for(int k = 0; k < 6; k++)
             {
-                //Make sure the triangle within bounds
-                if(triangles[k] >= 0 && triangles[k] < mNumberOfIndices/3)
+                //Make sure the triangle is within bounds
+                if(triangles[k] >= 0 && triangles[k] < mNumberOfTriangles)
                 {
-                    pointNormal = pointNormal + normals[triangles[k]];
+                    pointNormal = pointNormal + mTriangles[triangles[k]].norm;
                 }
             }
 
@@ -358,75 +363,80 @@ void PointCloud::averageNormals()
 
 
 //Find the y coordinate based on x and z
-float PointCloud::findY(const QVector3D &point, QMatrix4x4 *transformations)
+QVector3D PointCloud::findY(const QVector3D &point, QMatrix4x4 *transformations, int tri)
 {
-    float y = 0.f;
-    QVector3D pos = (transformations->inverted() * QVector4D(point, 1.f)).toVector3D();
-    int triangle = findPoint(pos);
+    QVector3D coord;
+    QVector3D pos = transformations ? (transformations->inverted() * QVector4D(point, 1.f)).toVector3D() : point;
+    int triangle = (tri == -1) ? findPoint(pos) : tri;
 
-    if(triangle != -1)
+    if(mTriangles && triangle > -1 && triangle < mNumberOfTriangles)
     {
         //https://stackoverflow.com/questions/11262391/from-barycentric-to-cartesian
-        QVector3D coord = barycentricCoordinates(mVertices[mIndices[triangle*3]].getPosition(), mVertices[mIndices[(triangle*3)+1]].getPosition(), mVertices[mIndices[(triangle*3)+2]].getPosition(), pos);
-        QVector3D carte = coord.x() * mVertices[mIndices[triangle*3]].getPosition() + coord.y() * mVertices[mIndices[(triangle*3)+1]].getPosition() + coord.z() * mVertices[mIndices[(triangle*3)+2]].getPosition();
+        coord = barycentricCoordinates(mTriangles[triangle].a, mTriangles[triangle].b, mTriangles[triangle].c, pos);
+        coord = coord.x() * mTriangles[triangle].a + coord.y() * mTriangles[triangle].b + coord.z() * mTriangles[triangle].c;
 
-        y = ((*transformations) * QVector4D(carte, 1.f)).y();
+        if(transformations)
+        {
+            coord = ((*transformations) * QVector4D(coord, 1.f)).toVector3D();
+        }
     }
 
-    return y;
+    return coord;
 }
 
 
 //Find the triangle a point is in
-int PointCloud::findPoint(const QVector3D &point)
+int PointCloud::findPoint(const QVector3D &point, QMatrix4x4 *transformations)
 {
-    bool *triangleVisited = new bool[mNumberOfIndices/3]{false};
+    bool *triangleVisited = new bool[mNumberOfTriangles]{false};
     int current = 0;
     bool found = false;
     QVector3D bary(-1.f, -1.f, -1.f);
+    QVector3D pos = transformations ? (transformations->inverted() * QVector4D(point, 1.f)).toVector3D() : point;
 
     //Searches until point is found or it starts backtracking
     while(!found && !triangleVisited[current])
     {
         //Get the barycentric coordinates of the point in relation to the triangle 'current'
-        bary = barycentricCoordinates(mVertices[mIndices[current*3]].getPosition(), mVertices[mIndices[(current*3)+1]].getPosition(), mVertices[mIndices[(current*3)+2]].getPosition(), point);
+        bary = barycentricCoordinates(mTriangles[current].a, mTriangles[current].b, mTriangles[current].c, pos);
         triangleVisited[current] = true;
 
         //If point is outside the current triangle
         if(bary.x() < 0.f || bary.y() < 0.f || bary.z() < 0.f)
         {
-            float min;
-            int index;
-
-            //Find the first point with a neighbor
-            if(mNeighbors[current*3] != -1)
+            int index = 0;
+            if(mTriangles[current].n1 != -1)
             {
-                min = bary.x();
-                index = 0;
-            }
-            else if(mNeighbors[(current*3)+1] != -1)
-            {
-                min = bary.y();
                 index = 1;
             }
-            else
+
+            if(mTriangles[current].n2 != -1 && !index)
             {
-                min = bary.z();
+                index = 2;
+            }
+            else if(mTriangles[current].n2 != -1 && bary.y() < bary.x())
+            {
                 index = 2;
             }
 
-            //Check if there's another point with a neighbor where the barycentric coordinate is smaller
-            for(int i = 0; i < 3; i++)
+            if(mTriangles[current].n3 != -1 && !index)
             {
-                if(bary[i] < min && mNeighbors[(current*3)+i] != -1)
-                {
-                    min = bary[i];
-                    index = i;
-                }
+                index = 3;
+            }
+            else if(mTriangles[current].n3 != -1 && ((index == 1 && bary.z() < bary.x()) || (index == 2 && bary.z() < bary.y())))
+            {
+                index = 3;
             }
 
-            //Next triangle to visit
-            current = mNeighbors[(current*3)+index];
+            switch(index)
+            {
+            case 1 : current = mTriangles[current].n1;
+                break;
+            case 2 : current = mTriangles[current].n2;
+                break;
+            case 3 : current = mTriangles[current].n3;
+                break;
+            }
         }
         else
         {
@@ -470,6 +480,18 @@ const QVector3D PointCloud::barycentricCoordinates(const QVector3D &p, const QVe
     temp.setZ(QVector3D::crossProduct(pointP, pointQ).y()/area);
 
     return temp;
+}
+
+
+Triangle PointCloud::getTriangle(int i)
+{
+    Triangle t;
+    if(i >= 0 && i < mNumberOfTriangles)
+    {
+        t = mTriangles[i];
+    }
+
+    return t;
 }
 
 

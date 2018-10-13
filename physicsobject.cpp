@@ -2,15 +2,16 @@
 #include "transform.h"
 #include "sceneobject.h"
 #include "pointcloud.h"
+#include "constants.h"
 #include <QMatrix4x4>
 #include <QKeyEvent>
+#include <QDebug>
 
 
 PhysicsObject::PhysicsObject(SceneObject *a) : ObjectInstance(a)
 {
-    mVelocity = QVector3D(0.f, 0.f, 0.f);
-    mFriction = 0.74f;
-    mSpeed = 10.f;
+    mFriction = 0.98f;
+    mSpeed = 30.f;
 }
 
 
@@ -24,20 +25,20 @@ PhysicsObject::~PhysicsObject()
 void PhysicsObject::physicsUpdate(float deltaTime)
 {
     setVelocity(deltaTime);
-
-    //Not a very good way to add friction, but it will do for this program
-    mVelocity = mVelocity*mFriction;
-
-    if(mVelocity.length() < 0.004f)
-    {
-        mVelocity = QVector3D(0.f, 0.f, 0.f);
-    }
+    moveObject(deltaTime);
 }
 
 
-void PhysicsObject::moveObject()
+void PhysicsObject::moveObject(float deltaTime)
 {
-    mTransform->translate(mVelocity.x(), mVelocity.y(), mVelocity.z());
+    QVector3D position = (mVelocity * deltaTime);
+    mTransform->translate(position.x(), position.y(), position.z());
+}
+
+
+void PhysicsObject::addForce(QVector3D force)
+{
+    mForce = mForce + force;
 }
 
 
@@ -54,7 +55,10 @@ void PhysicsObject::handleInput(QKeyEvent *event, bool pressed)
         case Qt::Key_S : mSPressed = pressed;
             break;
 
-        case Qt::Key_D :mDPressed = pressed;
+        case Qt::Key_D : mDPressed = pressed;
+            break;
+
+        case Qt::Key_Space : mSpacePressed = pressed;
             break;
 
         default:
@@ -66,31 +70,71 @@ void PhysicsObject::handleInput(QKeyEvent *event, bool pressed)
 //Sets velocity based on the pressed key
 void PhysicsObject::setVelocity(float deltaTime)
 {
-    if(mWPressed)
+    if(mTag == gsl::player)
     {
-        mVelocity.setZ(-1.f);
-    }
-    else if(mSPressed)
-    {
-        mVelocity.setZ(1.f);
+        QVector3D input(0.f, 0.f, 0.f);
+
+        if(mWPressed)
+        {
+            input.setZ(-1.f);
+        }
+        else if(mSPressed)
+        {
+            input.setZ(1.f);
+        }
+
+        if(mAPressed)
+        {
+            input.setX(-1.f);
+        }
+        else if(mDPressed)
+        {
+            input.setX(1.f);
+        }
+
+        if(mSpacePressed && mGrounded)
+        {
+            input.setY(50.f);
+        }
+
+        mForce = mForce + (input * (mGrounded ? 10.f : 2.f));
     }
 
-    if(mAPressed)
+    if(mGrounded)
     {
-        mVelocity.setX(-1.f);
+        mAcceleration = mTriangleNormal;
+        mAcceleration.setX(mAcceleration.x()*mAcceleration.y());
+        mAcceleration.setZ(mAcceleration.z()*mAcceleration.y());
+        mAcceleration.setY((mAcceleration.y()*mAcceleration.y())-1);
+
+        mAcceleration = (mAcceleration * 9.81f) + mForce;
+        mAcceleration = mAcceleration * (1.f/mMass);
     }
-    else if(mDPressed)
+    else
     {
-        mVelocity.setX(1.f);
+        //acceleration just from force
+        mAcceleration = (mForce + QVector3D{0.f, -9.81f, 0.f}) * (1.f/mMass);
     }
 
-    mVelocity *= mSpeed*deltaTime;
+    mVelocity = mVelocity + (mAcceleration * deltaTime);
 
-    //Makes sure it doesn't go faster than 'mSpeed'
     if(mVelocity.length() > mSpeed)
     {
         mVelocity.normalize();
+        mVelocity = mVelocity * mSpeed;
     }
+
+    //Add friction
+    mVelocity = mVelocity * mFriction;
+
+    //Set velocity to 0 if below a certain magnitude
+    if(mGrounded && mVelocity.length() < 0.08f)
+    {
+        mVelocity = QVector3D{0.f, 0.f, 0.f};
+    }
+
+    //reset forces
+    mForce = QVector3D(0.f, 0.f, 0.f);
 }
 
 
@@ -98,11 +142,11 @@ void PhysicsObject::setVelocity(float deltaTime)
 void PhysicsObject::setVelocity(QVector3D vel)
 {
     mVelocity = vel;
-    mVelocity *= mSpeed;
 
     if(mVelocity.length() > mSpeed)
     {
         mVelocity.normalize();
+        mVelocity *= mSpeed;
     }
 }
 
@@ -110,7 +154,11 @@ void PhysicsObject::setVelocity(QVector3D vel)
 //Sets the y position of the object
 void PhysicsObject::setYPos(float posY)
 {
-    float radius = ((mBoundingObject->getMax() - mBoundingObject->getMin()).length()/2);
+    mTransform->setPosition(mTransform->getTranslation().x(), posY, mTransform->getTranslation().z());
+}
 
-    mTransform->setPosition(mTransform->getTranslation().x(), (posY + radius), mTransform->getTranslation().z());
+
+void PhysicsObject::setTriangleNormal(QVector3D normal)
+{
+    mTriangleNormal = normal;
 }

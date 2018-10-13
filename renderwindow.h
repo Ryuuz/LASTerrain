@@ -15,6 +15,7 @@ class Light;
 class Camera;
 class ObjectInstance;
 class PhysicsObject;
+class Collision;
 
 class Sphere;
 class Axis;
@@ -57,6 +58,8 @@ class RenderWindow : public QWindow, protected QOpenGLFunctions_4_1_Core
 
         Camera *mCurrentCamera;
         Camera *mCamera1;
+
+        Collision *mCollision;
 
         Axis *mAxis;
         Sphere *mSphere;

@@ -10,6 +10,13 @@
 #include <QVector4D>
 #include <QMatrix4x4>
 
+struct Triangle
+{
+    QVector3D a, b, c; //Vertices
+    GLint n1{-1}, n2{-1}, n3{-1}; //Neighbors
+    QVector3D norm; //Triangle normal
+};
+
 class PointCloud : public SceneObject
 {
 public:
@@ -21,19 +28,21 @@ public:
 
     void makeGrid(unsigned int minX, unsigned int minZ);
     void assignIndices();
-    void assignNeighbors();
     void averageNormals();
 
-    float findY(const QVector3D &point, QMatrix4x4 *transformations);
-    int findPoint(const QVector3D &point);
+    QVector3D findY(const QVector3D &point, QMatrix4x4 *transformations = nullptr, int tri = -1);
+    int findPoint(const QVector3D &point, QMatrix4x4 *transformations = nullptr);
     const QVector3D barycentricCoordinates(const QVector3D &p, const QVector3D &q, const QVector3D &r, const QVector3D &point);
+
+    Triangle getTriangle(int i);
 
 private:
     void init() override;
     std::vector<QVector3D> mPoints;
+    Triangle *mTriangles;
+    int mNumberOfTriangles;
     float mResolutionX;
     float mResolutionZ;
-    int *mNeighbors = nullptr;
     int stepX = 0;
     int stepZ = 0;
 

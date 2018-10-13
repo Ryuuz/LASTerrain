@@ -42,7 +42,8 @@ SOURCES += \
     sphere.cpp \
     transform.cpp \
     vertex.cpp \
-    byteconverter.cpp
+    byteconverter.cpp \
+    collision.cpp
 
 HEADERS += \
         mainwindow.h \
@@ -64,7 +65,8 @@ HEADERS += \
     transform.h \
     vertex.h \
     byteconverter.h \
-    lasdefinitions.h
+    lasdefinitions.h \
+    collision.h
 
 FORMS += \
         mainwindow.ui
