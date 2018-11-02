@@ -15,11 +15,14 @@ class Light;
 class Camera;
 class ObjectInstance;
 class PhysicsObject;
+class Player;
 class Collision;
+class BSpline;
 
 class Sphere;
 class Axis;
 class PointCloud;
+class Cube;
 
 
 class RenderWindow : public QWindow, protected QOpenGLFunctions_4_1_Core
@@ -43,6 +46,7 @@ class RenderWindow : public QWindow, protected QOpenGLFunctions_4_1_Core
     private:
         void init();
         void createObjects();
+        void cleanUpObjects();
         void removeObjects();
         void startOpenGLDebugger();
 
@@ -60,16 +64,18 @@ class RenderWindow : public QWindow, protected QOpenGLFunctions_4_1_Core
         Camera *mCamera1;
 
         Collision *mCollision;
+        BSpline *mSpline;
 
         Axis *mAxis;
         Sphere *mSphere;
         PointCloud *mTerrain;
+        Cube *mCube;
 
         std::vector<ObjectInstance*> mStaticObjects;
         std::vector<PhysicsObject*> mDynamicObjects;
 
         ObjectInstance *mWorldTerrain;
-        PhysicsObject *mPlayer;
+        Player *mPlayer;
 
         float mDeltaTime{0.f};
         QBasicTimer mTimer;     //timer that drives the gameloop

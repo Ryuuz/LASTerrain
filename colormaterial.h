@@ -12,7 +12,7 @@ class ColorMaterial : public Material
 {
     public:
         ColorMaterial(Shader *s);
-        ~ColorMaterial();
+        ~ColorMaterial() override;
         void createMaterial() override;
         void setUniforms(QMatrix4x4 *modelMatrix, QVector3D color = QVector3D(1.f, 1.f, 1.f)) override;
 

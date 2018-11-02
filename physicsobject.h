@@ -15,9 +15,8 @@ class PhysicsObject : public ObjectInstance
 
         virtual void physicsUpdate(float deltaTime);
         virtual void moveObject(float deltaTime);
-        void handleInput(QKeyEvent *event, bool pressed);
         void addForce(QVector3D force);
-        void setVelocity(float deltaTime);
+        virtual void setVelocity(float deltaTime) = 0;
         void setVelocity(QVector3D vel);
         void setYPos(float posY);
         void setTriangleNormal(QVector3D normal);
@@ -25,7 +24,8 @@ class PhysicsObject : public ObjectInstance
         QVector3D getVelocity() {return mVelocity;}
         QVector3D getTriangleNormal() {return mTriangleNormal;}
 
-        bool mGrounded{false};
+        bool mGrounded = false;
+        int mCurrentTriangle = -1;
 
     protected:
         QVector3D mVelocity{0.f, 0.f, 0.f};
@@ -35,12 +35,6 @@ class PhysicsObject : public ObjectInstance
         float mFriction;
         float mSpeed;
         float mMass{1.f};       
-
-        bool mWPressed = false;
-        bool mAPressed = false;
-        bool mSPressed = false;
-        bool mDPressed = false;
-        bool mSpacePressed = false;
 };
 
 #endif // PHYSICSOBJECT_H

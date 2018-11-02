@@ -32,7 +32,7 @@ ObjectInstance::~ObjectInstance()
 //Calculates the MVP matrix and draws the object using the given 'mDrawType'
 void ObjectInstance::draw()
 {
-    if(mModel)
+    if(mModel && !mDestroyed)
     {
         initializeOpenGLFunctions();
 
@@ -82,4 +82,13 @@ QMatrix4x4* ObjectInstance::getModelMatrix()
     mModelMatrix->scale(mTransform->getScale());
 
     return mModelMatrix;
+}
+
+
+QVector3D ObjectInstance::getPosition()
+{
+    QVector3D position = mTransform->getTranslation();
+    position = ((*getModelMatrix()) * QVector4D(position, 1.f)).toVector3D();
+
+    return position;
 }

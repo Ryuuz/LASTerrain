@@ -22,15 +22,18 @@
 #include "sceneobject.h"
 #include "objectinstance.h"
 #include "physicsobject.h"
+#include "player.h"
+#include "npc.h"
 
 #include "sphere.h"
 #include "axis.h"
 #include "pointcloud.h"
+#include "cube.h"
 
 #include "boundingvolume.h"
 #include "transform.h"
 #include "collision.h"
-
+#include "bspline.h"
 
 
 RenderWindow::RenderWindow(const QSurfaceFormat &format, MainWindow *mainWindow)
@@ -58,6 +61,7 @@ RenderWindow::~RenderWindow()
     delete mAxis;
     delete mTerrain;
     delete mSphere;
+    delete mCube;
 
     delete mLightMaterial;
     delete mMaterial;
@@ -67,6 +71,7 @@ RenderWindow::~RenderWindow()
     delete mLightShader;
 
     delete mCollision;
+    delete mSpline;
 }
 
 
@@ -122,6 +127,10 @@ void RenderWindow::init()
     mSphere->setMaterial(mLightMaterial);
     glBindVertexArray(0);
 
+    mCube = new Cube;
+    mCube->setMaterial(mLightMaterial);
+    glBindVertexArray(0);
+
     //Create and place objects
     createObjects();
 
@@ -135,6 +144,7 @@ void RenderWindow::createObjects()
 {
     ObjectInstance *obj;
     PhysicsObject *physObj;
+    mSpline = new BSpline;
 
     //Axis
     obj = new ObjectInstance(mAxis);
@@ -146,27 +156,91 @@ void RenderWindow::createObjects()
     obj->getTransform()->setScale(0.5f, 0.5f, 0.5f);
     obj->setColor(QVector3D(0.1f, 0.8f, 0.2f));
     mStaticObjects.push_back(obj);
+    mWorldTerrain = mStaticObjects.back(); 
 
-    mWorldTerrain = mStaticObjects.back();
-
-    //Sphere
-    physObj = new PhysicsObject(mSphere);
+    //Spheres
+    physObj = new Player(mSphere);
     physObj->setColor(QVector3D(1.f, 0.f, 0.f));
     physObj->setBoundingObject(BoundType::sphere);
-    physObj->getTransform()->setPosition(0.f, 10.f, 0.f);
+    physObj->getTransform()->setPosition(-20.f, 10.f, 0.f);
     mDynamicObjects.push_back(physObj);
+    mPlayer = dynamic_cast<Player*>(mDynamicObjects.back());
 
-    physObj = new PhysicsObject(mSphere);
+    physObj = new NPC(mSphere, mSpline);
     physObj->setColor(QVector3D(0.f, 0.f, 1.f));
     physObj->setBoundingObject(BoundType::sphere);
-    physObj->getTransform()->setPosition(12.f, 10.f, 4.f);
+    physObj->getTransform()->setPosition(30.f, 0.f, -15.f);
+    physObj->setTag(gsl::enemy);
     mDynamicObjects.push_back(physObj);
 
-    mPlayer = mDynamicObjects.at(0);
-    mPlayer->setTag(gsl::player);
+    //Starting point
+    obj = new ObjectInstance(nullptr);
+    obj->getTransform()->setPosition(mDynamicObjects.back()->getTransform()->getTranslation().x(),
+                                     mDynamicObjects.back()->getTransform()->getTranslation().y(),
+                                     mDynamicObjects.back()->getTransform()->getTranslation().z());
+    mStaticObjects.push_back(obj);
+    mSpline->addPoint(mStaticObjects.back());
+
+    //Cubes
+    obj = new ObjectInstance(mCube);
+    obj->setColor(QVector3D(0.3f, 0.f, 1.f));
+    obj->setTag(gsl::trophy);
+    obj->setBoundingObject(BoundType::box);
+    obj->getTransform()->setPosition(30.f, 2.f, 2.f);
+    mStaticObjects.push_back(obj);
+    mSpline->addPoint(mStaticObjects.back());
+
+    obj = new ObjectInstance(mCube);
+    obj->setColor(QVector3D(0.3f, 0.f, 1.f));
+    obj->setTag(gsl::trophy);
+    obj->setBoundingObject(BoundType::box);
+    obj->getTransform()->setPosition(5.f, 2.f, -20.f);
+    mStaticObjects.push_back(obj);
+    mSpline->addPoint(mStaticObjects.back());
+
+    obj = new ObjectInstance(mCube);
+    obj->setColor(QVector3D(0.3f, 0.f, 1.f));
+    obj->setTag(gsl::trophy);
+    obj->setBoundingObject(BoundType::box);
+    obj->getTransform()->setPosition(-20.f, 2.f, 15.f);
+    mStaticObjects.push_back(obj);
+    mSpline->addPoint(mStaticObjects.back());
+
+    //Ending point
+    obj = new ObjectInstance(nullptr);
+    obj->getTransform()->setPosition(-30.f, 2.f, 10.f);
+    mStaticObjects.push_back(obj);
+    mSpline->addPoint(mStaticObjects.back());
 
     obj = nullptr;
     physObj = nullptr;
+
+    //mSpline->createBSpline();
+}
+
+
+//Delete objects that are marked as destroyed
+void RenderWindow::cleanUpObjects()
+{
+    for(int i = static_cast<int>(mStaticObjects.size()-1); i >= 0; i--)
+    {
+        if(mStaticObjects.at(static_cast<unsigned int>(i))->isDestroyed())
+        {
+            delete mStaticObjects.at(static_cast<unsigned int>(i));
+            mStaticObjects.at(static_cast<unsigned int>(i)) = nullptr;
+            mStaticObjects.erase(mStaticObjects.begin() + i);
+        }
+    }
+
+    for(int i = static_cast<int>(mDynamicObjects.size()-1); i >= 0; i--)
+    {
+        if(mDynamicObjects.at(static_cast<unsigned int>(i))->isDestroyed())
+        {
+            delete mDynamicObjects.at(static_cast<unsigned int>(i));
+            mDynamicObjects.at(static_cast<unsigned int>(i)) = nullptr;
+            mDynamicObjects.erase(mDynamicObjects.begin() + i);
+        }
+    }
 }
 
 
@@ -224,16 +298,16 @@ void RenderWindow::update()
         object->physicsUpdate(mDeltaTime);
         mCollision->groundCollision(object, mWorldTerrain);
 
-        /*for(auto item : mStaticObjects)
+        for(auto item : mStaticObjects)
         {
-            if(object->getBounds() && item->getBounds())
+            if(object->getBounds() && item->getBounds() && !item->isDestroyed())
             {
                 if(mCollision->collisionDetection(object->getBounds(), item->getBounds()))
                 {
                     mCollision->collisionHandling(object, item);
                 }
             }
-        }*/
+        }
 
         //Check object against other physics objects for collision
         for(auto item : mDynamicObjects)
@@ -247,6 +321,8 @@ void RenderWindow::update()
             }
         }
     }
+
+    //cleanUpObjects();
 }
 
 

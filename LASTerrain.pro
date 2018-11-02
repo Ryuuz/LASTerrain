@@ -43,7 +43,14 @@ SOURCES += \
     transform.cpp \
     vertex.cpp \
     byteconverter.cpp \
-    collision.cpp
+    collision.cpp \
+    npc.cpp \
+    bspline.cpp \
+    player.cpp \
+    cube.cpp \
+    state.cpp \
+    patrolstate.cpp \
+    thinkstate.cpp
 
 HEADERS += \
         mainwindow.h \
@@ -66,7 +73,14 @@ HEADERS += \
     vertex.h \
     byteconverter.h \
     lasdefinitions.h \
-    collision.h
+    collision.h \
+    npc.h \
+    bspline.h \
+    state.h \
+    player.h \
+    cube.h \
+    patrolstate.h \
+    thinkstate.h
 
 FORMS += \
         mainwindow.ui

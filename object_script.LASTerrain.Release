@@ -19,6 +19,13 @@ INPUT(
 ./release\vertex.o
 ./release\byteconverter.o
 ./release\collision.o
+./release\npc.o
+./release\bspline.o
+./release\player.o
+./release\cube.o
+./release\state.o
+./release\patrolstate.o
+./release\thinkstate.o
 ./release\moc_mainwindow.o
 ./release\moc_renderwindow.o
 ./release\moc_collision.o

@@ -19,6 +19,13 @@ INPUT(
 ./debug\vertex.o
 ./debug\byteconverter.o
 ./debug\collision.o
+./debug\npc.o
+./debug\bspline.o
+./debug\player.o
+./debug\cube.o
+./debug\state.o
+./debug\patrolstate.o
+./debug\thinkstate.o
 ./debug\moc_mainwindow.o
 ./debug\moc_renderwindow.o
 ./debug\moc_collision.o

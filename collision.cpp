@@ -95,7 +95,11 @@ bool Collision::collisionDetection(BoundingVolume *obj1, BoundingVolume *obj2)
 //One object with physics
 void Collision::collisionHandling(PhysicsObject *obj1, ObjectInstance *obj2)
 {
-    if(obj2->getBounds()->getType() == BoundType::box)
+    if(obj1->getTag() == gsl::player && obj2->getTag() == gsl::trophy)
+    {
+        obj2->setDestroyed(true);
+    }
+    else if(obj2->getBounds()->getType() == BoundType::box && obj1->getTag() != gsl::enemy)
     {
         obj1->setVelocity(obj1->getVelocity()*(-0.5f));
     }
@@ -150,52 +154,42 @@ void Collision::groundCollision(PhysicsObject *obj1, ObjectInstance *ground)
 
     float radius = (obj1->getBounds()->getMax() - pos).length();
     float distance = (pos - yCoordinates).length();
-    //qDebug() << pos.x() << pos.y() << pos.z() << yCoordinates.x() << yCoordinates.y() << yCoordinates.z();
 
-    if(obj1->mGrounded)
+    if(current != -1)
     {
-        if(distance <= (radius + 0.05f) && current != -1)
+        if(obj1->mGrounded)
         {
-            obj1->setYPos(yCoordinates.y() + radius);
-            obj1->setTriangleNormal(groundMesh->getTriangle(current).norm);
+            if(distance <= (radius + 0.05f) && current != -1)
+            {
+                obj1->setYPos(yCoordinates.y() + radius);
+                obj1->setTriangleNormal(groundMesh->getTriangle(current).norm);
+            }
+            else
+            {
+                obj1->mGrounded = false;
+            }
         }
         else
         {
-            obj1->mGrounded = false;
-        }
-    }
-    else
-    {
-        if(distance <= (radius + 0.1f) && current != -1)
-        {
-            obj1->mGrounded = true;
-            obj1->setYPos(yCoordinates.y() + radius);
-            obj1->setTriangleNormal(groundMesh->getTriangle(current).norm);
-            obj1->setVelocity(obj1->getVelocity() - ((obj1->getTriangleNormal() * 2.f * QVector3D::dotProduct(obj1->getVelocity(), obj1->getTriangleNormal())) * 0.8f));
-        }
-    }
-
-    /*std::vector<int> neighbors;
-    neighbors.push_back(groundMesh->getTriangle(current).n1);
-    neighbors.push_back(groundMesh->getTriangle(current).n2);
-    neighbors.push_back(groundMesh->getTriangle(current).n3);
-    QVector3D planePoint;
-    QVector3D collisionNormal;
-
-    for(int neighbor : neighbors)
-    {
-        if(neighbor != -1 && obj1->getVelocity().lengthSquared() > 0.f && obj1->mGrounded)
-        {
-            planePoint = (*ground->getModelMatrix() * QVector4D{groundMesh->getTriangle(neighbor).a, 1.f}).toVector3D();
-            distance = QVector3D::dotProduct(obj1->getTransform()->getTranslation() - planePoint, groundMesh->getTriangle(neighbor).norm);
-
-            if(distance > 0.f && distance < radius)
+            if(distance <= (radius + 0.1f) && current != -1)
             {
-                collisionNormal = (obj1->getTriangleNormal() + groundMesh->getTriangle(neighbor).norm) * (1 / (obj1->getTriangleNormal().length() + groundMesh->getTriangle(neighbor).norm.length()));
-                collisionNormal.normalize();
-
-                obj1->setVelocity(obj1->getVelocity() - (collisionNormal * 2.f * QVector3D::dotProduct(obj1->getVelocity(), collisionNormal)));
+                obj1->mGrounded = true;
+                obj1->setYPos(yCoordinates.y() + radius);
+                obj1->setTriangleNormal(groundMesh->getTriangle(current).norm);
+                obj1->setVelocity(obj1->getVelocity() - ((obj1->getTriangleNormal() * 2.f * QVector3D::dotProduct(obj1->getVelocity(), obj1->getTriangleNormal())) * 0.8f));
             }
         }
-    }*/
+
+        if(current != obj1->mCurrentTriangle && obj1->mGrounded)
+        {
+            QVector3D collisionNormal;
+
+            collisionNormal = (obj1->getTriangleNormal() + groundMesh->getTriangle(current).norm) * (1 / (obj1->getTriangleNormal().length() + groundMesh->getTriangle(current).norm.length()));
+            collisionNormal.normalize();
+
+            obj1->setVelocity(obj1->getVelocity() - (collisionNormal * 2.f * QVector3D::dotProduct(obj1->getVelocity(), collisionNormal)));
+        }
+    }
+
+    obj1->mCurrentTriangle = current;
 }
