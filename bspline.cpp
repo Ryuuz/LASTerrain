@@ -2,7 +2,7 @@
 #include "objectinstance.h"
 #include "transform.h"
 #include <algorithm>
-#include <QDebug>
+#include <QRandomGenerator>
 
 
 BSpline::BSpline()
@@ -46,7 +46,18 @@ void BSpline::reorderPoints(QVector3D startPoint)
     std::swap(mTrophies.back(), mTrophies.front());
     mControlPoints.push_back(startPoint/*mTrophies.front()->getPosition()*/);
 
-    //Swap around the control points
+    //Swap the order of the objects
+    unsigned int index = 0;
+    for(unsigned int i = 1; i < (mTrophies.size() - 1); i++)
+    {
+        index = QRandomGenerator::global()->bounded(mTrophies.size() - 2) + 1;
+        if(index != i)
+        {
+            std::swap(mTrophies.at(i), mTrophies.at(index));
+        }
+    }
+
+    //Add the objects as control points
     for(unsigned int i = 1; i < (mTrophies.size() - 1); i++)
     {
         mControlPoints.push_back(mTrophies.at(i)->getPosition());
